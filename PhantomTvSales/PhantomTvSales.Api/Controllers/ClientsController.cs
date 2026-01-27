@@ -27,13 +27,13 @@ public class ClientsController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            search = search.Trim();
+            search = search.Trim().ToLower();
             q = q.Where(c =>
-                c.PhantomId.Contains(search) ||
-                c.LastName.Contains(search) ||
-                c.FirstName.Contains(search) ||
-                c.Phone.Contains(search) ||
-                c.Address.Contains(search));
+                (c.PhantomId ?? "").ToLower().Contains(search) ||
+                (c.LastName ?? "").ToLower().Contains(search) ||
+                (c.FirstName ?? "").ToLower().Contains(search) ||
+                (c.Phone ?? "").ToLower().Contains(search) ||
+                (c.Address ?? "").ToLower().Contains(search));
         }
 
         if (status.HasValue)
@@ -42,7 +42,7 @@ public class ClientsController : ControllerBase
         var total = await q.CountAsync(ct);
 
         var items = await q
-            .OrderBy(c => c.LastName).ThenBy(c => c.FirstName)
+            .OrderBy(c => c.PhantomId)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(c => new
