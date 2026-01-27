@@ -1,0 +1,170 @@
+@page "/admin/users"
+@using System.Net.Http.Json
+@inject IHttpClientFactory HttpClientFactory
+@inject PhantomTvSales.Web.Services.AuthState AuthState
+
+<h3>Usuarios</h3>
+
+@if (!AuthState.IsAdmin)
+{
+  <div class="alert alert-warning">Solo el administrador puede gestionar usuarios.</div>
+}
+else
+{
+  @if (!string.IsNullOrWhiteSpace(Error))
+  {
+    <div class="alert alert-danger">@Error</div>
+  }
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <h5>Crear usuario</h5>
+      <div class="row g-2">
+        <div class="col-12 col-md-4">
+          <label class="form-label">Usuario</label>
+          <input class="form-control" @bind="NewUsername" />
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label">Contraseña</label>
+          <input class="form-control" type="password" @bind="NewPassword" />
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label">Rol</label>
+          <select class="form-select" @bind="NewRole">
+            <option value="Seller">Vendedor</option>
+            <option value="Admin">Admin</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <button class="btn btn-primary" @onclick="CreateUser">Crear</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <h5>Lista de usuarios</h5>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Rol</th>
+            <th>Actualizar</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var user in UserList)
+          {
+            <tr>
+              <td>@user.Username</td>
+              <td>
+                <select class="form-select form-select-sm" @bind="user.Role">
+                  <option value="Seller">Vendedor</option>
+                  <option value="Admin">Admin</option>
+                </select>
+              </td>
+              <td class="d-flex gap-2">
+                <input class="form-control form-control-sm" type="password" placeholder="Nueva contraseña" @bind="user.NewPassword" />
+                <button class="btn btn-sm btn-outline-primary" @onclick="() => UpdateUser(user)">Guardar</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+  string? Error;
+
+  string? NewUsername;
+  string? NewPassword;
+  string NewRole = "Seller";
+
+  List<UserRow> UserList = new();
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (AuthState.IsAdmin)
+    {
+      await Load();
+    }
+  }
+
+  async Task Load()
+  {
+    Error = null;
+    try
+    {
+      var http = HttpClientFactory.CreateClient("Api");
+      UserList = await http.GetFromJsonAsync<List<UserRow>>("/api/users") ?? new();
+    }
+    catch (Exception ex)
+    {
+      Error = ex.Message;
+    }
+  }
+
+  async Task CreateUser()
+  {
+    Error = null;
+    try
+    {
+      var http = HttpClientFactory.CreateClient("Api");
+      var res = await http.PostAsJsonAsync("/api/users", new
+      {
+        username = NewUsername,
+        password = NewPassword,
+        role = NewRole
+      });
+      if (!res.IsSuccessStatusCode)
+      {
+        Error = "No se pudo crear el usuario.";
+        return;
+      }
+      NewUsername = "";
+      NewPassword = "";
+      NewRole = "Seller";
+      await Load();
+    }
+    catch (Exception ex)
+    {
+      Error = ex.Message;
+    }
+  }
+
+  async Task UpdateUser(UserRow user)
+  {
+    Error = null;
+    try
+    {
+      var http = HttpClientFactory.CreateClient("Api");
+      var res = await http.PutAsJsonAsync($"/api/users/{user.Id}", new
+      {
+        password = string.IsNullOrWhiteSpace(user.NewPassword) ? null : user.NewPassword,
+        role = user.Role
+      });
+      if (!res.IsSuccessStatusCode)
+      {
+        Error = "No se pudo actualizar el usuario.";
+        return;
+      }
+      user.NewPassword = "";
+      await Load();
+    }
+    catch (Exception ex)
+    {
+      Error = ex.Message;
+    }
+  }
+
+  sealed class UserRow
+  {
+    public int Id { get; set; }
+    public string Username { get; set; } = "";
+    public string Role { get; set; } = "";
+    public string? NewPassword { get; set; }
+  }
+}

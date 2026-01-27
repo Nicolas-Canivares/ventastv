@@ -15,10 +15,10 @@
     <label class="form-label">Estado de contacto</label>
     <select class="form-select" @bind="StatusFilter">
       <option value="">Todos</option>
-      <option value="1">A la espera de respuesta</option>
-      <option value="2">Venta cerrada</option>
-      <option value="3">No quiere el servicio</option>
-      <option value="4">Contactar luego</option>
+      <option value="1">Contactado, a la espera de respuesta</option>
+      <option value="2">Contactado y cerrada la venta</option>
+      <option value="3">Contactado y no quiere el servicio</option>
+      <option value="4">Contactado, servicio luego</option>
     </select>
   </div>
 
@@ -175,10 +175,10 @@ else
 
   static string StatusLabel(int? s) => s switch
   {
-    1 => "A la espera de respuesta",
-    2 => "Venta cerrada",
-    3 => "No quiere el servicio",
-    4 => "Contactar luego",
+    1 => "Contactado, a la espera de respuesta",
+    2 => "Contactado y cerrada la venta",
+    3 => "Contactado y no quiere el servicio",
+    4 => "Contactado, servicio luego",
     _ => "-"
   };
 
