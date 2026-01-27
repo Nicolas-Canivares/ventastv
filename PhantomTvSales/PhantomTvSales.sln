@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhantomTvSales.Api", "PhantomTvSales.Api\PhantomTvSales.Api.csproj", "{7DD91B96-A632-4745-9E16-69EB799E776D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhantomTvSales.Web", "PhantomTvSales.Web\PhantomTvSales.Web.csproj", "{7396EC1A-1F1E-4D83-AEC6-646FCB1E3134}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7DD91B96-A632-4745-9E16-69EB799E776D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7DD91B96-A632-4745-9E16-69EB799E776D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7DD91B96-A632-4745-9E16-69EB799E776D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7DD91B96-A632-4745-9E16-69EB799E776D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7396EC1A-1F1E-4D83-AEC6-646FCB1E3134}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7396EC1A-1F1E-4D83-AEC6-646FCB1E3134}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7396EC1A-1F1E-4D83-AEC6-646FCB1E3134}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7396EC1A-1F1E-4D83-AEC6-646FCB1E3134}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
