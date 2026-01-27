@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PhantomTvSales.Api.Data;
 using PhantomTvSales.Api.Models;
+using PhantomTvSales.Api.Services;
 
 namespace PhantomTvSales.Api.Controllers;
 
@@ -27,13 +28,13 @@ public class ClientsController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            search = search.Trim();
+            search = search.Trim().ToLower();
             q = q.Where(c =>
-                c.PhantomId.Contains(search) ||
-                c.LastName.Contains(search) ||
-                c.FirstName.Contains(search) ||
-                c.Phone.Contains(search) ||
-                c.Address.Contains(search));
+                (c.PhantomId ?? "").ToLower().Contains(search) ||
+                (c.LastName ?? "").ToLower().Contains(search) ||
+                (c.FirstName ?? "").ToLower().Contains(search) ||
+                (c.Phone ?? "").ToLower().Contains(search) ||
+                (c.Address ?? "").ToLower().Contains(search));
         }
 
         if (status.HasValue)
@@ -42,7 +43,7 @@ public class ClientsController : ControllerBase
         var total = await q.CountAsync(ct);
 
         var items = await q
-            .OrderBy(c => c.LastName).ThenBy(c => c.FirstName)
+            .OrderBy(c => c.PhantomId)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(c => new
@@ -67,11 +68,15 @@ public class ClientsController : ControllerBase
     [HttpPut("{id:int}/status")]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequest req, CancellationToken ct)
     {
+        var currentUser = HttpContext.GetCurrentUser();
+        if (currentUser is null) return Unauthorized("Login requerido.");
+
         var client = await _db.Clients.FirstOrDefaultAsync(c => c.Id == id, ct);
         if (client is null) return NotFound();
 
         client.ContactStatus = req.status;
         if (req.notes is not null) client.Notes = req.notes;
+        client.LastContactedByUserId = currentUser.Id;
         client.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);
@@ -86,6 +91,9 @@ public class ClientsController : ControllerBase
     [FromForm] IFormFile receiptPdf,
     CancellationToken ct)
     {
+        var currentUser = HttpContext.GetCurrentUser();
+        if (currentUser is null) return Unauthorized("Login requerido.");
+
         var client = await _db.Clients.FirstOrDefaultAsync(c => c.Id == id, ct);
         if (client is null) return NotFound();
 
@@ -123,6 +131,7 @@ public class ClientsController : ControllerBase
             ClientId = client.Id,
             Amount = amount,
             ReceiptPath = fullPath,
+            CreatedByUserId = currentUser.Id,
             SoldAt = DateTime.UtcNow
         };
 
@@ -140,8 +149,23 @@ public class ClientsController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetOne(int id, CancellationToken ct)
     {
-        var c = await _db.Clients.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        var c = await _db.Clients.AsNoTracking()
+            .Include(x => x.LastContactedByUser)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (c is null) return NotFound();
+
+        var sale = await _db.Sales.AsNoTracking()
+            .Include(s => s.CreatedByUser)
+            .Where(s => s.ClientId == id)
+            .OrderByDescending(s => s.SoldAt)
+            .Select(s => new
+            {
+                s.Id,
+                s.Amount,
+                s.SoldAt,
+                CreatedByUsername = s.CreatedByUser == null ? null : s.CreatedByUser.Username
+            })
+            .FirstOrDefaultAsync(ct);
 
         return Ok(new
         {
@@ -154,8 +178,28 @@ public class ClientsController : ControllerBase
             c.City,
             c.ContactStatus,
             c.Notes,
-            c.UpdatedAt
+            LastContactedByUsername = c.LastContactedByUser == null ? null : c.LastContactedByUser.Username,
+            c.UpdatedAt,
+            Sale = sale
         });
+    }
+
+    [HttpGet("{id:int}/sale/receipt/latest")]
+    public async Task<IActionResult> DownloadLatestReceipt(int id, CancellationToken ct)
+    {
+        var currentUser = HttpContext.GetCurrentUser();
+        if (currentUser is null) return Unauthorized("Login requerido.");
+
+        var sale = await _db.Sales.AsNoTracking()
+            .Where(s => s.ClientId == id)
+            .OrderByDescending(s => s.SoldAt)
+            .FirstOrDefaultAsync(ct);
+
+        if (sale is null) return NotFound();
+        if (!System.IO.File.Exists(sale.ReceiptPath)) return NotFound();
+
+        var fileName = Path.GetFileName(sale.ReceiptPath);
+        return PhysicalFile(sale.ReceiptPath, "application/pdf", fileName);
     }
 
 

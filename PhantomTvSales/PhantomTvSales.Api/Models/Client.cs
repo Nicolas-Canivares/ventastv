@@ -19,5 +19,8 @@ public class Client
     public ContactStatus? ContactStatus { get; set; }
     public string Notes { get; set; } = "";
 
+    public int? LastContactedByUserId { get; set; }
+    public User? LastContactedByUser { get; set; }
+
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
