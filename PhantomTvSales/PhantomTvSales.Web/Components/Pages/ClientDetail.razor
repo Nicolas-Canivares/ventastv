@@ -4,6 +4,7 @@
 @using System.Net.Http.Headers
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager Nav
+@inject PhantomTvSales.Web.Services.AuthState AuthState
 
 <h3>Detalle cliente</h3>
 
@@ -46,6 +47,12 @@ else
       <h5>Estado de contacto</h5>
 
       <div class="row g-2">
+        @if (!string.IsNullOrWhiteSpace(Client.LastContactedByUsername))
+        {
+          <div class="col-12">
+            <div class="text-muted">Última actualización por: <b>@Client.LastContactedByUsername</b></div>
+          </div>
+        }
         <div class="col-12 col-md-6">
           <label class="form-label">Estado</label>
           <select class="form-select" @bind="NewStatus">
@@ -62,7 +69,11 @@ else
         </div>
 
         <div class="col-12">
-          <button class="btn btn-primary" @onclick="SaveStatus">Guardar estado</button>
+          <button class="btn btn-primary" @onclick="SaveStatus" disabled="@(!AuthState.IsAuthenticated)">Guardar estado</button>
+          @if (!AuthState.IsAuthenticated)
+          {
+            <div class="text-muted mt-1">Iniciá sesión para guardar el estado.</div>
+          }
         </div>
       </div>
     </div>
@@ -155,6 +166,7 @@ else
       {
         NewStatus = Client.ContactStatus ?? 1;
         Notes = Client.Notes;
+        ReceiptUrl = BuildReceiptUrl(http.BaseAddress, Id, AuthState.Token);
       }
     }
     catch (Exception ex)
@@ -182,6 +194,13 @@ else
     {
       Error = ex.Message;
     }
+  }
+
+  static string? BuildReceiptUrl(Uri? baseAddress, int id, string? token)
+  {
+    if (baseAddress is null || string.IsNullOrWhiteSpace(token)) return null;
+    var url = new Uri(baseAddress, $"api/clients/{id}/sale/receipt");
+    return $"{url}?access_token={Uri.EscapeDataString(token)}";
   }
 
   void OnFileChange(InputFileChangeEventArgs e)
