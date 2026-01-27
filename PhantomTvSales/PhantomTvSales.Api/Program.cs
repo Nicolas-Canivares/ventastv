@@ -58,3 +58,45 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+static void EnsureAuthSchema(AppDbContext db)
+{
+    db.Database.ExecuteSqlRaw("""
+        CREATE TABLE IF NOT EXISTS "Users" (
+            "Id" INTEGER NOT NULL CONSTRAINT "PK_Users" PRIMARY KEY AUTOINCREMENT,
+            "Username" TEXT NOT NULL,
+            "PasswordHash" TEXT NOT NULL,
+            "Role" INTEGER NOT NULL,
+            "CreatedAt" TEXT NOT NULL,
+            "UpdatedAt" TEXT NOT NULL
+        );
+        """);
+
+    db.Database.ExecuteSqlRaw("""
+        CREATE TABLE IF NOT EXISTS "UserSessions" (
+            "Id" INTEGER NOT NULL CONSTRAINT "PK_UserSessions" PRIMARY KEY AUTOINCREMENT,
+            "Token" TEXT NOT NULL,
+            "UserId" INTEGER NOT NULL,
+            "ExpiresAt" TEXT NOT NULL,
+            CONSTRAINT "FK_UserSessions_Users_UserId" FOREIGN KEY ("UserId") REFERENCES "Users" ("Id") ON DELETE CASCADE
+        );
+        """);
+
+    db.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_Users_Username" ON "Users" ("Username");""");
+    db.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_UserSessions_Token" ON "UserSessions" ("Token");""");
+
+    TryAddColumn(db, "Clients", "LastContactedByUserId", "INTEGER");
+    TryAddColumn(db, "Sales", "CreatedByUserId", "INTEGER");
+}
+
+static void TryAddColumn(AppDbContext db, string table, string column, string type)
+{
+    try
+    {
+        db.Database.ExecuteSqlRaw($"ALTER TABLE \"{table}\" ADD COLUMN \"{column}\" {type} NULL;");
+    }
+    catch
+    {
+        // columna ya existe o la tabla no está lista
+    }
+}
