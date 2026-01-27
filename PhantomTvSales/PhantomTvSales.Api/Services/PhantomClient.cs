@@ -77,4 +77,45 @@ public sealed class PhantomClient
         var doc = JsonDocument.Parse(json);
         return doc.RootElement.Clone();
     }
+
+    public async Task<string?> GetMovilByIdaAsync(string ida, CancellationToken ct)
+    {
+        var token = await GetTokenAsync(ct);
+
+        // Endpoint: action=Consulta_Cliente_Avanzada, inputs Token + IDA + JSON :contentReference[oaicite:3]{index=3}
+        var url =
+            $"{_opt.BaseUrl}?token={Uri.EscapeDataString(token)}&action=Consulta_Cliente_Avanzada&IDA={Uri.EscapeDataString(ida)}&JSON=1";
+
+        using var resp = await _http.GetAsync(url, ct);
+        resp.EnsureSuccessStatusCode();
+
+        var json = await resp.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(json);
+
+        string? ExtractMovil(JsonElement obj)
+        {
+            if (obj.ValueKind != JsonValueKind.Object) return null;
+
+            foreach (var p in obj.EnumerateObject())
+            {
+                if (string.Equals(p.Name, "Movil", StringComparison.OrdinalIgnoreCase))
+                    return p.Value.ToString();
+            }
+            return null;
+        }
+
+        var root = doc.RootElement;
+
+        // Puede venir objeto o array dependiendo del caso; contemplamos ambos.
+        var movil = root.ValueKind switch
+        {
+            JsonValueKind.Object => ExtractMovil(root),
+            JsonValueKind.Array when root.GetArrayLength() > 0 => ExtractMovil(root[0]),
+            _ => null
+        };
+
+        movil = movil?.Trim();
+        return string.IsNullOrWhiteSpace(movil) ? null : movil;
+    }
+
 }
