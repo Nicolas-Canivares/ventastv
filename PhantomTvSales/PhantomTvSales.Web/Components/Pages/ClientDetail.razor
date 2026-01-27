@@ -155,6 +155,7 @@ else
       {
         NewStatus = Client.ContactStatus ?? 1;
         Notes = Client.Notes;
+        ReceiptUrl = new Uri(http.BaseAddress!, $"api/clients/{Id}/sale/receipt").ToString();
       }
     }
     catch (Exception ex)
