@@ -1,4 +1,5 @@
 using PhantomTvSales.Web.Components;
+using PhantomTvSales.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -6,11 +7,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddScoped<AuthState>();
+builder.Services.AddTransient<ApiAuthHandler>();
+
 builder.Services.AddHttpClient("Api", client =>
 {
     var baseUrl = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5072/";
     client.BaseAddress = new Uri(baseUrl);
-});
+}).AddHttpMessageHandler<ApiAuthHandler>();
 
 var app = builder.Build();
 
