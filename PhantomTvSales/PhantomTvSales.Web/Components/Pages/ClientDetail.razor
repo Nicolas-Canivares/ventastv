@@ -68,7 +68,7 @@ else
     </div>
   </div>
 
-  <div class="card">
+  <div class="card mb-3">
     <div class="card-body">
       <h5>Registrar venta (monto + PDF)</h5>
       <p class="text-muted mb-2">Usar solo si el estado es “Contactado y cerrada la venta”.</p>
@@ -91,6 +91,24 @@ else
           <button class="btn btn-success" @onclick="UploadSale" disabled="@(!IsSaleReady)">Guardar venta</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <h5>Última venta registrada</h5>
+      @if (Client.Sale is null)
+      {
+        <p class="text-muted mb-0">Todavía no hay ventas registradas.</p>
+      }
+      else
+      {
+        <div><b>Monto:</b> @Client.Sale.Amount.ToString("N2")</div>
+        <div><b>Fecha:</b> @Client.Sale.SoldAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+        <a class="btn btn-outline-primary btn-sm mt-2" href="@($"/api/clients/{Id}/sale/receipt")" target="_blank" rel="noopener noreferrer">
+          Descargar comprobante
+        </a>
+      }
     </div>
   </div>
 }
@@ -214,5 +232,13 @@ else
     public string City { get; set; } = "";
     public int? ContactStatus { get; set; }
     public string? Notes { get; set; }
+    public SaleDto? Sale { get; set; }
+  }
+
+  sealed class SaleDto
+  {
+    public int Id { get; set; }
+    public decimal Amount { get; set; }
+    public DateTime SoldAt { get; set; }
   }
 }
