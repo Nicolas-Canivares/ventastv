@@ -213,8 +213,8 @@ public class ClientsController : ControllerBase
     }
 
 
-    [HttpGet("{id:int}/sale/receipt")]
-    public async Task<IActionResult> DownloadReceipt(int id, CancellationToken ct)
+    [HttpGet("{id:int}/sale/receipt/latest")]
+    public async Task<IActionResult> DownloadLatestReceipt(int id, CancellationToken ct)
     {
         var sale = await _db.Sales.AsNoTracking()
             .Where(s => s.ClientId == id)
