@@ -99,11 +99,7 @@ else
         </div>
 
         <div class="col-12">
-          <button class="btn btn-success" @onclick="UploadSale" disabled="@(!IsSaleReady || !AuthState.IsAuthenticated)">Guardar venta</button>
-          @if (!AuthState.IsAuthenticated)
-          {
-            <div class="text-muted mt-1">Iniciá sesión para registrar la venta.</div>
-          }
+          <button class="btn btn-success" @onclick="UploadSale" disabled="@(!IsSaleReady)">Guardar venta</button>
         </div>
       </div>
     </div>
@@ -120,26 +116,21 @@ else
       {
         <div><b>Monto:</b> @Client.Sale.Amount.ToString("N2")</div>
         <div><b>Fecha:</b> @Client.Sale.SoldAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
-        @if (!string.IsNullOrWhiteSpace(Client.Sale.CreatedByUsername))
-        {
-          <div><b>Vendedor:</b> @Client.Sale.CreatedByUsername</div>
-        }
-        @if (AuthState.IsAuthenticated && !string.IsNullOrWhiteSpace(ReceiptUrl))
-        {
-          <a class="btn btn-outline-primary btn-sm mt-2" href="@ReceiptUrl" target="_blank" rel="noopener noreferrer">
-            Descargar comprobante
-          </a>
-        }
-        else
-        {
-          <div class="text-muted mt-2">Iniciá sesión para descargar el comprobante.</div>
-        }
+        <a class="btn btn-outline-primary btn-sm mt-2" href="@ReceiptUrl" target="_blank" rel="noopener noreferrer">
+          Descargar comprobante
+        </a>
+
       }
     </div>
   </div>
 }
 
 @code {
+
+  string ReceiptUrl =>
+  new Uri(HttpClientFactory.CreateClient("Api").BaseAddress!,
+  $"api/clients/{Id}/sale/receipt").ToString();
+
   [Parameter] public int Id { get; set; }
 
   bool Loading = true;
@@ -154,7 +145,6 @@ else
   decimal Amount;
   IBrowserFile? ReceiptFile;
   string? SelectedFileName;
-  string? ReceiptUrl { get; set; }
   bool IsSaleReady => NewStatus == 2 && ReceiptFile is not null && Amount > 0;
 
   protected override async Task OnInitializedAsync()
@@ -209,7 +199,7 @@ else
   static string? BuildReceiptUrl(Uri? baseAddress, int id, string? token)
   {
     if (baseAddress is null || string.IsNullOrWhiteSpace(token)) return null;
-    var url = new Uri(baseAddress, $"api/clients/{id}/sale/receipt/latest");
+    var url = new Uri(baseAddress, $"api/clients/{id}/sale/receipt");
     return $"{url}?access_token={Uri.EscapeDataString(token)}";
   }
 
@@ -267,7 +257,6 @@ else
     public string City { get; set; } = "";
     public int? ContactStatus { get; set; }
     public string? Notes { get; set; }
-    public string? LastContactedByUsername { get; set; }
     public SaleDto? Sale { get; set; }
   }
 
@@ -276,6 +265,5 @@ else
     public int Id { get; set; }
     public decimal Amount { get; set; }
     public DateTime SoldAt { get; set; }
-    public string? CreatedByUsername { get; set; }
   }
 }

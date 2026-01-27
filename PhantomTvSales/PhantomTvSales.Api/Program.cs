@@ -37,8 +37,6 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
 
-    EnsureAuthSchema(db);
-
     var seedUsername = builder.Configuration["AdminSeed:Username"];
     var seedPassword = builder.Configuration["AdminSeed:Password"];
 

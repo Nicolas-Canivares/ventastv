@@ -23,7 +23,7 @@
         <input class="form-control" type="password" @bind="Password" />
       </div>
       <div class="col-12">
-        <button class="btn btn-primary" @onclick="HandleLogin">Ingresar</button>
+        <button class="btn btn-primary" @onclick="Login">Ingresar</button>
       </div>
     </div>
   </div>
@@ -34,7 +34,7 @@
   string? Password;
   string? Error;
 
-  async Task HandleLogin()
+  async Task Login()
   {
     Error = null;
     try

@@ -11,7 +11,14 @@ namespace PhantomTvSales.Api.Controllers;
 public class ClientsController : ControllerBase
 {
     private readonly AppDbContext _db;
-    public ClientsController(AppDbContext db) => _db = db;
+    private readonly PhantomClient _phantom;
+
+    public ClientsController(AppDbContext db, PhantomClient phantom)
+    {
+        _db = db;
+        _phantom = phantom;
+    }
+
 
     [HttpGet]
     public async Task<IActionResult> Get(
@@ -149,22 +156,26 @@ public class ClientsController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetOne(int id, CancellationToken ct)
     {
-        var c = await _db.Clients.AsNoTracking()
-            .Include(x => x.LastContactedByUser)
-            .FirstOrDefaultAsync(x => x.Id == id, ct);
+        // lo traemos TRACKED para poder actualizar Phone
+        var c = await _db.Clients.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (c is null) return NotFound();
 
+        // Si no hay teléfono, lo pedimos a Phantom (Movil) y lo guardamos
+        if (string.IsNullOrWhiteSpace(c.Phone))
+        {
+            var movil = await _phantom.GetMovilByIdaAsync(c.PhantomId, ct);
+            if (!string.IsNullOrWhiteSpace(movil))
+            {
+                c.Phone = movil;
+                c.UpdatedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync(ct);
+            }
+        }
+
         var sale = await _db.Sales.AsNoTracking()
-            .Include(s => s.CreatedByUser)
             .Where(s => s.ClientId == id)
             .OrderByDescending(s => s.SoldAt)
-            .Select(s => new
-            {
-                s.Id,
-                s.Amount,
-                s.SoldAt,
-                CreatedByUsername = s.CreatedByUser == null ? null : s.CreatedByUser.Username
-            })
+            .Select(s => new { s.Id, s.Amount, s.SoldAt })
             .FirstOrDefaultAsync(ct);
 
         return Ok(new
@@ -178,18 +189,33 @@ public class ClientsController : ControllerBase
             c.City,
             c.ContactStatus,
             c.Notes,
-            LastContactedByUsername = c.LastContactedByUser == null ? null : c.LastContactedByUser.Username,
             c.UpdatedAt,
             Sale = sale
         });
     }
 
-    [HttpGet("{id:int}/sale/receipt/latest")]
-    public async Task<IActionResult> DownloadLatestReceipt(int id, CancellationToken ct)
+    [HttpGet("{id:int}/sale/receipt")]
+    public async Task<IActionResult> DownloadReceipt(int id, CancellationToken ct)
     {
         var currentUser = HttpContext.GetCurrentUser();
         if (currentUser is null) return Unauthorized("Login requerido.");
 
+        var sale = await _db.Sales.AsNoTracking()
+            .Where(s => s.ClientId == id)
+            .OrderByDescending(s => s.SoldAt)
+            .FirstOrDefaultAsync(ct);
+
+        if (sale is null) return NotFound();
+        if (!System.IO.File.Exists(sale.ReceiptPath)) return NotFound();
+
+        var fileName = Path.GetFileName(sale.ReceiptPath);
+        return PhysicalFile(sale.ReceiptPath, "application/pdf", fileName);
+    }
+
+
+    [HttpGet("{id:int}/sale/receipt/latest")]
+    public async Task<IActionResult> DownloadLatestReceipt(int id, CancellationToken ct)
+    {
         var sale = await _db.Sales.AsNoTracking()
             .Where(s => s.ClientId == id)
             .OrderByDescending(s => s.SoldAt)

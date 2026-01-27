@@ -54,7 +54,7 @@ else
           </tr>
         </thead>
         <tbody>
-          @foreach (var user in UserList)
+          @foreach (var user in UsersList)
           {
             <tr>
               <td>@user.Username</td>
@@ -83,7 +83,7 @@ else
   string? NewPassword;
   string NewRole = "Seller";
 
-  List<UserRow> UserList = new();
+  List<UserRow> UsersList = new();
 
   protected override async Task OnInitializedAsync()
   {
@@ -99,7 +99,7 @@ else
     try
     {
       var http = HttpClientFactory.CreateClient("Api");
-      UserList = await http.GetFromJsonAsync<List<UserRow>>("/api/users") ?? new();
+      UsersList = await http.GetFromJsonAsync<List<UserRow>>("/api/users") ?? new();
     }
     catch (Exception ex)
     {
