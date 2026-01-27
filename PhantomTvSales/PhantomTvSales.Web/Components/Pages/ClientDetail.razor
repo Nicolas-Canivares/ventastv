@@ -49,10 +49,10 @@ else
         <div class="col-12 col-md-6">
           <label class="form-label">Estado</label>
           <select class="form-select" @bind="NewStatus">
-            <option value="1">A la espera de respuesta</option>
-            <option value="2">Venta cerrada</option>
-            <option value="3">No quiere el servicio</option>
-            <option value="4">Contactar luego</option>
+            <option value="1">Contactado, a la espera de respuesta</option>
+            <option value="2">Contactado y cerrada la venta</option>
+            <option value="3">Contactado y no quiere el servicio</option>
+            <option value="4">Contactado, servicio luego</option>
           </select>
         </div>
 
@@ -68,9 +68,10 @@ else
     </div>
   </div>
 
-  <div class="card">
+  <div class="card mb-3">
     <div class="card-body">
       <h5>Registrar venta (monto + PDF)</h5>
+      <p class="text-muted mb-2">Usar solo si el estado es “Contactado y cerrada la venta”.</p>
       <div class="row g-2">
         <div class="col-12 col-md-4">
           <label class="form-label">Monto</label>
@@ -87,9 +88,27 @@ else
         </div>
 
         <div class="col-12">
-          <button class="btn btn-success" @onclick="UploadSale" disabled="@(ReceiptFile is null)">Guardar venta</button>
+          <button class="btn btn-success" @onclick="UploadSale" disabled="@(!IsSaleReady)">Guardar venta</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <h5>Última venta registrada</h5>
+      @if (Client.Sale is null)
+      {
+        <p class="text-muted mb-0">Todavía no hay ventas registradas.</p>
+      }
+      else
+      {
+        <div><b>Monto:</b> @Client.Sale.Amount.ToString("N2")</div>
+        <div><b>Fecha:</b> @Client.Sale.SoldAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+        <a class="btn btn-outline-primary btn-sm mt-2" href="@($"/api/clients/{Id}/sale/receipt")" target="_blank" rel="noopener noreferrer">
+          Descargar comprobante
+        </a>
+      }
     </div>
   </div>
 }
@@ -109,6 +128,7 @@ else
   decimal Amount;
   IBrowserFile? ReceiptFile;
   string? SelectedFileName;
+  bool IsSaleReady => NewStatus == 2 && ReceiptFile is not null && Amount > 0;
 
   protected override async Task OnInitializedAsync()
   {
@@ -212,5 +232,13 @@ else
     public string City { get; set; } = "";
     public int? ContactStatus { get; set; }
     public string? Notes { get; set; }
+    public SaleDto? Sale { get; set; }
+  }
+
+  sealed class SaleDto
+  {
+    public int Id { get; set; }
+    public decimal Amount { get; set; }
+    public DateTime SoldAt { get; set; }
   }
 }
