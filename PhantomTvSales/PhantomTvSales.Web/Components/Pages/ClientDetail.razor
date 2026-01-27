@@ -105,7 +105,7 @@ else
       {
         <div><b>Monto:</b> @Client.Sale.Amount.ToString("N2")</div>
         <div><b>Fecha:</b> @Client.Sale.SoldAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
-        <a class="btn btn-outline-primary btn-sm mt-2" href="@ReceiptUrl" target="_blank" rel="noopener noreferrer">
+        <a class="btn btn-outline-primary btn-sm mt-2" href="@($"/api/clients/{Id}/sale/receipt")" target="_blank" rel="noopener noreferrer">
           Descargar comprobante
         </a>
       }
@@ -128,7 +128,6 @@ else
   decimal Amount;
   IBrowserFile? ReceiptFile;
   string? SelectedFileName;
-  string? ReceiptUrl;
   bool IsSaleReady => NewStatus == 2 && ReceiptFile is not null && Amount > 0;
 
   protected override async Task OnInitializedAsync()
