@@ -17,5 +17,8 @@ public class Sale
     [Required]
     public string ReceiptPath { get; set; } = "";
 
+    public int? CreatedByUserId { get; set; }
+    public User? CreatedByUser { get; set; }
+
     public DateTime SoldAt { get; set; } = DateTime.UtcNow;
 }

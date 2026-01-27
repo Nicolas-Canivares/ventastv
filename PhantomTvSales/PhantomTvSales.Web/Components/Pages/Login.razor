@@ -1,0 +1,78 @@
+@page "/login"
+@using System.Net.Http.Json
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager Nav
+@inject PhantomTvSales.Web.Services.AuthState AuthState
+
+<h3>Iniciar sesión</h3>
+
+@if (!string.IsNullOrWhiteSpace(Error))
+{
+  <div class="alert alert-danger">@Error</div>
+}
+
+<div class="card">
+  <div class="card-body">
+    <div class="row g-2">
+      <div class="col-12 col-md-6">
+        <label class="form-label">Usuario</label>
+        <input class="form-control" @bind="Username" />
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label">Contraseña</label>
+        <input class="form-control" type="password" @bind="Password" />
+      </div>
+      <div class="col-12">
+        <button class="btn btn-primary" @onclick="Login">Ingresar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@code {
+  string? Username;
+  string? Password;
+  string? Error;
+
+  async Task Login()
+  {
+    Error = null;
+    try
+    {
+      var http = HttpClientFactory.CreateClient("Api");
+      var res = await http.PostAsJsonAsync("/api/auth/login", new { username = Username, password = Password });
+      if (!res.IsSuccessStatusCode)
+      {
+        Error = "Usuario o contraseña inválidos.";
+        return;
+      }
+
+      var payload = await res.Content.ReadFromJsonAsync<LoginResponse>();
+      if (payload is null)
+      {
+        Error = "No se pudo iniciar sesión.";
+        return;
+      }
+
+      AuthState.Set(payload.Token, payload.User.Username, payload.User.Role);
+      Nav.NavigateTo("/clients", true);
+    }
+    catch (Exception ex)
+    {
+      Error = ex.Message;
+    }
+  }
+
+  sealed class LoginResponse
+  {
+    public string Token { get; set; } = "";
+    public UserDto User { get; set; } = new();
+  }
+
+  sealed class UserDto
+  {
+    public int Id { get; set; }
+    public string Username { get; set; } = "";
+    public string Role { get; set; } = "";
+  }
+}
