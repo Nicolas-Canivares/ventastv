@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PhantomTvSales.Api.Data;
 using PhantomTvSales.Api.Models;
+using PhantomTvSales.Api.Services;
 
 namespace PhantomTvSales.Api.Controllers;
 
@@ -10,7 +11,14 @@ namespace PhantomTvSales.Api.Controllers;
 public class ClientsController : ControllerBase
 {
     private readonly AppDbContext _db;
-    public ClientsController(AppDbContext db) => _db = db;
+    private readonly PhantomClient _phantom;
+
+    public ClientsController(AppDbContext db, PhantomClient phantom)
+    {
+        _db = db;
+        _phantom = phantom;
+    }
+
 
     [HttpGet]
     public async Task<IActionResult> Get(
@@ -140,18 +148,26 @@ public class ClientsController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetOne(int id, CancellationToken ct)
     {
-        var c = await _db.Clients.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        // lo traemos TRACKED para poder actualizar Phone
+        var c = await _db.Clients.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (c is null) return NotFound();
+
+        // Si no hay teléfono, lo pedimos a Phantom (Movil) y lo guardamos
+        if (string.IsNullOrWhiteSpace(c.Phone))
+        {
+            var movil = await _phantom.GetMovilByIdaAsync(c.PhantomId, ct);
+            if (!string.IsNullOrWhiteSpace(movil))
+            {
+                c.Phone = movil;
+                c.UpdatedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync(ct);
+            }
+        }
 
         var sale = await _db.Sales.AsNoTracking()
             .Where(s => s.ClientId == id)
             .OrderByDescending(s => s.SoldAt)
-            .Select(s => new
-            {
-                s.Id,
-                s.Amount,
-                s.SoldAt
-            })
+            .Select(s => new { s.Id, s.Amount, s.SoldAt })
             .FirstOrDefaultAsync(ct);
 
         return Ok(new
@@ -169,6 +185,7 @@ public class ClientsController : ControllerBase
             Sale = sale
         });
     }
+
 
     [HttpGet("{id:int}/sale/receipt")]
     public async Task<IActionResult> DownloadReceipt(int id, CancellationToken ct)

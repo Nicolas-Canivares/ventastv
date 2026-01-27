@@ -105,15 +105,21 @@ else
       {
         <div><b>Monto:</b> @Client.Sale.Amount.ToString("N2")</div>
         <div><b>Fecha:</b> @Client.Sale.SoldAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
-        <a class="btn btn-outline-primary btn-sm mt-2" href="@($"/api/clients/{Id}/sale/receipt")" target="_blank" rel="noopener noreferrer">
+        <a class="btn btn-outline-primary btn-sm mt-2" href="@ReceiptUrl" target="_blank" rel="noopener noreferrer">
           Descargar comprobante
         </a>
+
       }
     </div>
   </div>
 }
 
 @code {
+
+  string ReceiptUrl =>
+  new Uri(HttpClientFactory.CreateClient("Api").BaseAddress!,
+  $"api/clients/{Id}/sale/receipt").ToString();
+
   [Parameter] public int Id { get; set; }
 
   bool Loading = true;
