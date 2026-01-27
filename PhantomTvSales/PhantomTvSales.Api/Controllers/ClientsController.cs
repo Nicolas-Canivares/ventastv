@@ -75,11 +75,15 @@ public class ClientsController : ControllerBase
     [HttpPut("{id:int}/status")]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequest req, CancellationToken ct)
     {
+        var currentUser = HttpContext.GetCurrentUser();
+        if (currentUser is null) return Unauthorized("Login requerido.");
+
         var client = await _db.Clients.FirstOrDefaultAsync(c => c.Id == id, ct);
         if (client is null) return NotFound();
 
         client.ContactStatus = req.status;
         if (req.notes is not null) client.Notes = req.notes;
+        client.LastContactedByUserId = currentUser.Id;
         client.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);
@@ -94,6 +98,9 @@ public class ClientsController : ControllerBase
     [FromForm] IFormFile receiptPdf,
     CancellationToken ct)
     {
+        var currentUser = HttpContext.GetCurrentUser();
+        if (currentUser is null) return Unauthorized("Login requerido.");
+
         var client = await _db.Clients.FirstOrDefaultAsync(c => c.Id == id, ct);
         if (client is null) return NotFound();
 
@@ -131,6 +138,7 @@ public class ClientsController : ControllerBase
             ClientId = client.Id,
             Amount = amount,
             ReceiptPath = fullPath,
+            CreatedByUserId = currentUser.Id,
             SoldAt = DateTime.UtcNow
         };
 
@@ -184,6 +192,24 @@ public class ClientsController : ControllerBase
             c.UpdatedAt,
             Sale = sale
         });
+    }
+
+    [HttpGet("{id:int}/sale/receipt")]
+    public async Task<IActionResult> DownloadReceipt(int id, CancellationToken ct)
+    {
+        var currentUser = HttpContext.GetCurrentUser();
+        if (currentUser is null) return Unauthorized("Login requerido.");
+
+        var sale = await _db.Sales.AsNoTracking()
+            .Where(s => s.ClientId == id)
+            .OrderByDescending(s => s.SoldAt)
+            .FirstOrDefaultAsync(ct);
+
+        if (sale is null) return NotFound();
+        if (!System.IO.File.Exists(sale.ReceiptPath)) return NotFound();
+
+        var fileName = Path.GetFileName(sale.ReceiptPath);
+        return PhysicalFile(sale.ReceiptPath, "application/pdf", fileName);
     }
 
 

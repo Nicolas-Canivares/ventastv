@@ -1,4 +1,7 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@inject PhantomTvSales.Web.Services.AuthState AuthState
+@inject NavigationManager Nav
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <img src="images/logo.png" alt="Ventas TV" style="height:32px;" class="me-2" />
         @* <a class="navbar-brand" href="">Connet SRL</a> *@
@@ -15,6 +18,28 @@
             </NavLink>
         </li>
 
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="login">
+                <span class="oi oi-account-login" aria-hidden="true"></span> Ingresar
+            </NavLink>
+        </div>
+
+        @if (AuthState.IsAdmin)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin/users">
+                    <span class="oi oi-people" aria-hidden="true"></span> Usuarios
+                </NavLink>
+            </div>
+        }
+
+        @if (AuthState.IsAuthenticated)
+        {
+            <div class="nav-item px-3">
+                <button class="btn btn-link nav-link" @onclick="Logout">Salir (@AuthState.Username)</button>
+            </div>
+        }
+
 
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="counter">
@@ -29,3 +54,11 @@
         </div>
     </nav>
 </div>
+
+@code {
+    void Logout()
+    {
+        AuthState.Clear();
+        Nav.NavigateTo("/login", true);
+    }
+}
