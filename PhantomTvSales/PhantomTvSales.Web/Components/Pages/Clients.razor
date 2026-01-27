@@ -1,0 +1,203 @@
+@page "/clients"
+@using System.Net.Http.Json
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager Nav
+
+<h3>Clientes</h3>
+
+<div class="row g-2 align-items-end mb-3">
+  <div class="col-12 col-md-5">
+    <label class="form-label">Buscar</label>
+    <input class="form-control" @bind="Search" @bind:event="oninput" placeholder="Apellido, nombre, ID Phantom, dirección..." />
+  </div>
+
+  <div class="col-12 col-md-4">
+    <label class="form-label">Estado de contacto</label>
+    <select class="form-select" @bind="StatusFilter">
+      <option value="">Todos</option>
+      <option value="1">A la espera de respuesta</option>
+      <option value="2">Venta cerrada</option>
+      <option value="3">No quiere el servicio</option>
+      <option value="4">Contactar luego</option>
+    </select>
+  </div>
+
+  <div class="col-12 col-md-3 d-flex gap-2">
+    <button class="btn btn-primary w-100" @onclick="Reload">Buscar</button>
+    <button class="btn btn-outline-secondary w-100" @onclick="Sync">Sync</button>
+  </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Error))
+{
+  <div class="alert alert-danger">@Error</div>
+}
+
+@if (Loading)
+{
+  <p>Cargando…</p>
+}
+else
+{
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div>Total: <b>@Total</b></div>
+    <div class="d-flex gap-2 align-items-center">
+      <button class="btn btn-sm btn-outline-secondary" @onclick="Prev" disabled="@(Page<=1)">◀</button>
+      <span>Página @Page</span>
+      <button class="btn btn-sm btn-outline-secondary" @onclick="Next" disabled="@((Page*PageSize)>=Total)">▶</button>
+    </div>
+  </div>
+
+  <!-- Desktop -->
+  <table class="table table-striped d-none d-md-table">
+    <thead>
+      <tr>
+        <th>Cliente</th>
+        <th>ID Phantom</th>
+        <th>Teléfono</th>
+        <th>Dirección</th>
+        <th>Estado contacto</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      @foreach (var c in Items)
+      {
+        <tr>
+          <td>@c.LastName, @c.FirstName</td>
+          <td>@c.PhantomId</td>
+          <td>@c.Phone</td>
+          <td>@c.Address</td>
+          <td>@StatusLabel(c.ContactStatus)</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-primary" @onclick="() => Open(c.Id)">Abrir</button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+
+  <!-- Mobile -->
+  <div class="d-md-none">
+    @foreach (var c in Items)
+    {
+      <div class="card mb-2">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <div class="fw-bold">@c.LastName, @c.FirstName</div>
+              <div class="text-muted">ID: @c.PhantomId</div>
+            </div>
+            <button class="btn btn-sm btn-outline-primary" @onclick="() => Open(c.Id)">Abrir</button>
+          </div>
+          <div class="mt-2"><b>Tel:</b> @c.Phone</div>
+          <div><b>Dir:</b> @c.Address</div>
+          <div><b>Estado:</b> @StatusLabel(c.ContactStatus)</div>
+        </div>
+      </div>
+    }
+  </div>
+}
+
+@code {
+  bool Loading;
+  string? Error;
+
+  string? Search;
+  string? StatusFilter;
+
+  int Page = 1;
+  int PageSize = 50;
+  int Total;
+
+  List<ClientItem> Items = new();
+
+  protected override async Task OnInitializedAsync() => await Reload();
+
+  async Task Reload()
+  {
+    Error = null;
+    Loading = true;
+
+    try
+    {
+      var http = HttpClientFactory.CreateClient("Api");
+
+      var qs = new List<string>
+      {
+        $"page={Page}",
+        $"pageSize={PageSize}"
+      };
+
+      if (!string.IsNullOrWhiteSpace(Search))
+        qs.Add($"search={Uri.EscapeDataString(Search)}");
+
+      if (!string.IsNullOrWhiteSpace(StatusFilter))
+        qs.Add($"status={Uri.EscapeDataString(StatusFilter)}");
+
+      var url = "/api/clients?" + string.Join("&", qs);
+
+      var resp = await http.GetFromJsonAsync<ClientListResponse>(url);
+      Items = resp?.Items ?? new();
+      Total = resp?.Total ?? 0;
+    }
+    catch (Exception ex)
+    {
+      Error = ex.Message;
+    }
+    finally
+    {
+      Loading = false;
+    }
+  }
+
+  async Task Sync()
+  {
+    Error = null;
+    try
+    {
+      var http = HttpClientFactory.CreateClient("Api");
+      var r = await http.PostAsync("/api/phantom/sync/abonados-olt", null);
+      r.EnsureSuccessStatusCode();
+      Page = 1;
+      await Reload();
+    }
+    catch (Exception ex)
+    {
+      Error = ex.Message;
+    }
+  }
+
+  async Task Prev() { if (Page > 1) { Page--; await Reload(); } }
+  async Task Next() { Page++; await Reload(); }
+
+  void Open(int id) => Nav.NavigateTo($"/clients/{id}");
+
+  static string StatusLabel(int? s) => s switch
+  {
+    1 => "A la espera de respuesta",
+    2 => "Venta cerrada",
+    3 => "No quiere el servicio",
+    4 => "Contactar luego",
+    _ => "-"
+  };
+
+  sealed class ClientListResponse
+  {
+    public int Total { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+    public List<ClientItem> Items { get; set; } = new();
+  }
+
+  sealed class ClientItem
+  {
+    public int Id { get; set; }
+    public string PhantomId { get; set; } = "";
+    public string FirstName { get; set; } = "";
+    public string LastName { get; set; } = "";
+    public string Phone { get; set; } = "";
+    public string Address { get; set; } = "";
+    public int? ContactStatus { get; set; }
+  }
+}
