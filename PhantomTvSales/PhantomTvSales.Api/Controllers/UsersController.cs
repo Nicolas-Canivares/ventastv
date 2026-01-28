@@ -44,7 +44,9 @@ public class UsersController : ControllerBase
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(request.Password))
             return BadRequest("Usuario y contraseña son obligatorios.");
 
-        var exists = await _db.Users.AnyAsync(u => u.Username == username, ct);
+        var exists = await _db.Users.AnyAsync(
+            u => EF.Functions.Collate(u.Username, "NOCASE") == username,
+            ct);
         if (exists) return BadRequest("Usuario ya existe.");
 
         var user = new User

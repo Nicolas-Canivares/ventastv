@@ -70,6 +70,41 @@ public class ClientsController : ControllerBase
         return Ok(new { total, page, pageSize, items });
     }
 
+    [HttpGet("stats")]
+    public async Task<IActionResult> GetStats(CancellationToken ct)
+    {
+        if (!HttpContext.IsAdmin()) return Unauthorized("Solo admin.");
+
+        var totalClients = await _db.Clients.CountAsync(ct);
+        var totalSales = await _db.Sales.CountAsync(ct);
+        var totalSalesAmountRaw = await _db.Sales.SumAsync(s => (double?)s.Amount, ct) ?? 0d;
+        var totalSalesAmount = Convert.ToDecimal(totalSalesAmountRaw);
+        var lastSaleAt = await _db.Sales
+            .OrderByDescending(s => s.SoldAt)
+            .Select(s => (DateTime?)s.SoldAt)
+            .FirstOrDefaultAsync(ct);
+
+        var lastClientUpdate = await _db.Clients
+            .OrderByDescending(c => c.UpdatedAt)
+            .Select(c => (DateTime?)c.UpdatedAt)
+            .FirstOrDefaultAsync(ct);
+
+        var byStatus = await _db.Clients
+            .GroupBy(c => c.ContactStatus)
+            .Select(g => new { status = g.Key, total = g.Count() })
+            .ToListAsync(ct);
+
+        return Ok(new
+        {
+            totalClients,
+            totalSales,
+            totalSalesAmount,
+            lastSaleAt,
+            lastClientUpdate,
+            byStatus
+        });
+    }
+
     public sealed record UpdateStatusRequest(ContactStatus status, string? notes);
 
     [HttpPut("{id:int}/status")]
@@ -157,7 +192,9 @@ public class ClientsController : ControllerBase
     public async Task<IActionResult> GetOne(int id, CancellationToken ct)
     {
         // lo traemos TRACKED para poder actualizar Phone
-        var c = await _db.Clients.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var c = await _db.Clients
+            .Include(x => x.LastContactedByUser)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (c is null) return NotFound();
 
         // Si no hay teléfono, lo pedimos a Phantom (Movil) y lo guardamos
@@ -190,6 +227,7 @@ public class ClientsController : ControllerBase
             c.ContactStatus,
             c.Notes,
             c.UpdatedAt,
+            LastContactedByUsername = c.LastContactedByUser != null ? c.LastContactedByUser.Username : null,
             Sale = sale
         });
     }

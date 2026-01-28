@@ -1,13 +1,17 @@
-﻿@page "/"
+@page "/"
+@using System.Net.Http.Json
+@inject PhantomTvSales.Web.Services.ApiClient ApiClient
+@inject PhantomTvSales.Web.Services.AuthState AuthState
+@implements IDisposable
 
 <PageTitle>Phantom TV - Ventas</PageTitle>
 
 <div class="card">
   <div class="card-body">
-    <h1 class="h4">Panel de vendedores</h1>
+    @* <h1 class="h4">Panel de vendedores</h1>
     <p class="mb-2">
-      Accedé al listado de clientes de Phantom con sus datos clave (nombre y apellido,
-      ID Phantom, teléfono y dirección) y registrá el estado de cada contacto.
+      Acced? al listado de clientes de Phantom con sus datos clave (nombre y apellido,
+      ID Phantom, tel?fono y direcci?n) y registr? el estado de cada contacto.
     </p>
     <ul>
       <li>Contactado, a la espera de respuesta.</li>
@@ -16,8 +20,186 @@
       <li>Contactado, servicio luego.</li>
     </ul>
     <p class="mb-3">
-      Cuando la venta esté cerrada, podrás cargar el monto abonado y adjuntar el comprobante en PDF.
-    </p>
+      Cuando la venta est? cerrada, podr?s cargar el monto abonado y adjuntar el comprobante en PDF.
+    </p> *@
     <a class="btn btn-primary" href="/clients">Ir a clientes</a>
   </div>
 </div>
+
+@if (AuthState.IsAdmin)
+{
+  <div class="card mt-3">
+    <div class="card-body">
+      <h2 class="h5 mb-3">Estadisticas</h2>
+
+      @if (StatsLoading)
+      {
+        <div class="loading-block">
+          <span class="loading-spinner" aria-hidden="true"></span>
+          <span>Cargando...</span>
+        </div>
+      }
+      else if (!string.IsNullOrWhiteSpace(StatsError))
+      {
+        <div class="alert alert-danger">@StatsError</div>
+      }
+      else if (Stats is not null)
+      {
+        <div class="row g-3">
+          <div class="col-12 col-md-3">
+            <div class="card">
+              <div class="card-body">
+                <div class="text-muted">Clientes</div>
+                <div class="fs-4 fw-bold">@Stats.TotalClients</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-md-3">
+            <div class="card">
+              <div class="card-body">
+                <div class="text-muted">Ventas</div>
+                <div class="fs-4 fw-bold">@Stats.TotalSales</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-md-3">
+            <div class="card">
+              <div class="card-body">
+                <div class="text-muted">Monto total</div>
+                <div class="fs-4 fw-bold">$@Stats.TotalSalesAmount.ToString("N2")</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-md-3">
+            <div class="card">
+              <div class="card-body">
+                <div class="text-muted">Ultima venta</div>
+                <div class="fw-semibold">@FormatDate(Stats.LastSaleAt)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <div class="text-muted mb-1">Estados de contacto</div>
+          <div class="row g-2">
+            @foreach (var item in Stats.ByStatus)
+            {
+              <div class="col-12 col-md-3">
+                <div class="card">
+                  <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>@StatusLabel(item.Status)</div>
+                    <div class="fw-bold">@item.Total</div>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="text-muted mt-3">
+          Ultima actualizacion de cliente: <b>@FormatDate(Stats.LastClientUpdate)</b>
+        </div>
+      }
+    </div>
+  </div>
+}
+
+@code {
+  bool StatsLoading;
+  string? StatsError;
+  StatsResponse? Stats;
+  bool _statsLoaded;
+
+  protected override async Task OnInitializedAsync()
+  {
+    AuthState.OnChange += HandleAuthChange;
+    if (AuthState.IsAdmin)
+    {
+      await LoadStatsAsync();
+    }
+  }
+
+  void HandleAuthChange()
+  {
+    _ = HandleAuthChangeAsync();
+  }
+
+  async Task HandleAuthChangeAsync()
+  {
+    if (!_statsLoaded && AuthState.IsAdmin)
+    {
+      await LoadStatsAsync();
+    }
+  }
+
+  async Task LoadStatsAsync()
+  {
+    StatsLoading = true;
+    StatsError = null;
+    await InvokeAsync(StateHasChanged);
+    try
+    {
+      var http = ApiClient.Create();
+      Stats = await http.GetFromJsonAsync<StatsResponse>("/api/clients/stats");
+      _statsLoaded = true;
+    }
+    catch (Exception ex)
+    {
+      StatsError = ex.Message;
+    }
+    finally
+    {
+      StatsLoading = false;
+      await InvokeAsync(StateHasChanged);
+    }
+  }
+
+  static string FormatDate(DateTime? value) =>
+    value is null ? "-" : value.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+
+  static int? ParseStatus(string? value)
+  {
+    if (string.IsNullOrWhiteSpace(value)) return null;
+    if (int.TryParse(value, out var numeric)) return numeric;
+
+    return value switch
+    {
+      "AwaitingResponse" => 1,
+      "SaleClosed" => 2,
+      "NotInterested" => 3,
+      "ContactLater" => 4,
+      _ => null
+    };
+  }
+
+  static string StatusLabel(string? s) => ParseStatus(s) switch
+  {
+    1 => "Contactado, a la espera de respuesta",
+    2 => "Contactado y cerrada la venta",
+    3 => "Contactado y no quiere el servicio",
+    4 => "Contactado, servicio luego",
+    _ => "Sin estado"
+  };
+
+  public void Dispose()
+  {
+    AuthState.OnChange -= HandleAuthChange;
+  }
+
+  sealed class StatsResponse
+  {
+    public int TotalClients { get; set; }
+    public int TotalSales { get; set; }
+    public decimal TotalSalesAmount { get; set; }
+    public DateTime? LastSaleAt { get; set; }
+    public DateTime? LastClientUpdate { get; set; }
+    public List<StatusCount> ByStatus { get; set; } = new();
+  }
+
+  sealed class StatusCount
+  {
+    public string? Status { get; set; }
+    public int Total { get; set; }
+  }
+}

@@ -1,5 +1,6 @@
 using PhantomTvSales.Web.Components;
 using PhantomTvSales.Web.Services;
+using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,7 +9,10 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddScoped<AuthState>();
+builder.Services.AddScoped<ApiClient>();
+builder.Services.AddScoped<ToastService>();
 builder.Services.AddTransient<ApiAuthHandler>();
+builder.Services.AddScoped<ProtectedLocalStorage>();
 
 builder.Services.AddHttpClient("Api", client =>
 {

@@ -1,19 +1,20 @@
 @page "/clients"
 @using System.Net.Http.Json
-@inject IHttpClientFactory HttpClientFactory
+@inject PhantomTvSales.Web.Services.ApiClient ApiClient
 @inject NavigationManager Nav
+@inject PhantomTvSales.Web.Services.ToastService Toasts
 
 <h3>Clientes</h3>
 
 <div class="row g-2 align-items-end mb-3">
   <div class="col-12 col-md-5">
     <label class="form-label">Buscar</label>
-    <input class="form-control" @bind="Search" @bind:event="oninput" placeholder="Apellido, nombre, ID Phantom, dirección..." />
+    <input class="form-control" value="@Search" @oninput="OnSearchInput" placeholder="Apellido, nombre, ID Phantom, dirección..." />
   </div>
 
   <div class="col-12 col-md-4">
     <label class="form-label">Estado de contacto</label>
-    <select class="form-select" @bind="StatusFilter">
+    <select class="form-select" value="@StatusFilter" @onchange="OnStatusChange">
       <option value="">Todos</option>
       <option value="1">Contactado, a la espera de respuesta</option>
       <option value="2">Contactado y cerrada la venta</option>
@@ -23,7 +24,7 @@
   </div>
 
   <div class="col-12 col-md-3 d-flex gap-2">
-    <button class="btn btn-primary w-100" @onclick="Reload">Buscar</button>
+    <button class="btn btn-primary w-100" @onclick="SearchNow">Buscar</button>
     <button class="btn btn-outline-secondary w-100" @onclick="Sync">Sync</button>
   </div>
 </div>
@@ -35,7 +36,10 @@
 
 @if (Loading)
 {
-  <p>Cargando…</p>
+  <div class="loading-block">
+    <span class="loading-spinner" aria-hidden="true"></span>
+    <span>Cargando...</span>
+  </div>
 }
 else
 {
@@ -121,7 +125,7 @@ else
 
     try
     {
-      var http = HttpClientFactory.CreateClient("Api");
+      var http = ApiClient.Create();
 
       var qs = new List<string>
       {
@@ -140,6 +144,21 @@ else
       var resp = await http.GetFromJsonAsync<ClientListResponse>(url);
       Items = resp?.Items ?? new();
       Total = resp?.Total ?? 0;
+
+      if (Total > 0)
+      {
+        var maxPage = (int)Math.Ceiling(Total / (double)PageSize);
+        if (Page > maxPage)
+        {
+          Page = maxPage;
+          await Reload();
+          return;
+        }
+      }
+      else if (Page != 1)
+      {
+        Page = 1;
+      }
     }
     catch (Exception ex)
     {
@@ -156,24 +175,81 @@ else
     Error = null;
     try
     {
-      var http = HttpClientFactory.CreateClient("Api");
+      var http = ApiClient.Create();
       var r = await http.PostAsync("/api/phantom/sync/abonados-olt", null);
       r.EnsureSuccessStatusCode();
+      Toasts.ShowSuccess("Sync completado.");
       Page = 1;
       await Reload();
     }
     catch (Exception ex)
     {
       Error = ex.Message;
+      Toasts.ShowError("No se pudo sincronizar.");
     }
   }
 
   async Task Prev() { if (Page > 1) { Page--; await Reload(); } }
   async Task Next() { Page++; await Reload(); }
 
+  async Task SearchNow()
+  {
+    Page = 1;
+    await Reload();
+  }
+
+  CancellationTokenSource? _searchCts;
+
+  async Task OnSearchInput(ChangeEventArgs e)
+  {
+    Search = e.Value?.ToString();
+    await DebouncedSearchAsync();
+  }
+
+  async Task OnStatusChange(ChangeEventArgs e)
+  {
+    StatusFilter = e.Value?.ToString();
+    await DebouncedSearchAsync();
+  }
+
+  async Task DebouncedSearchAsync()
+  {
+    _searchCts?.Cancel();
+    _searchCts?.Dispose();
+
+    _searchCts = new CancellationTokenSource();
+    var token = _searchCts.Token;
+
+    try
+    {
+      await Task.Delay(350, token);
+      Page = 1;
+      await Reload();
+    }
+    catch (TaskCanceledException)
+    {
+      // ignore
+    }
+  }
+
   void Open(int id) => Nav.NavigateTo($"/clients/{id}");
 
-  static string StatusLabel(int? s) => s switch
+  static int? ParseStatus(string? value)
+  {
+    if (string.IsNullOrWhiteSpace(value)) return null;
+    if (int.TryParse(value, out var numeric)) return numeric;
+
+    return value switch
+    {
+      "AwaitingResponse" => 1,
+      "SaleClosed" => 2,
+      "NotInterested" => 3,
+      "ContactLater" => 4,
+      _ => null
+    };
+  }
+
+  static string StatusLabel(string? s) => ParseStatus(s) switch
   {
     1 => "Contactado, a la espera de respuesta",
     2 => "Contactado y cerrada la venta",
@@ -198,6 +274,6 @@ else
     public string LastName { get; set; } = "";
     public string Phone { get; set; } = "";
     public string Address { get; set; } = "";
-    public int? ContactStatus { get; set; }
+    public string? ContactStatus { get; set; }
   }
 }

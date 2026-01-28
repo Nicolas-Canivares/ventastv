@@ -29,7 +29,9 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
             return BadRequest("Usuario y contraseña son obligatorios.");
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username, ct);
+        var user = await _db.Users.FirstOrDefaultAsync(
+            u => EF.Functions.Collate(u.Username, "NOCASE") == username,
+            ct);
         if (user is null)
             return Unauthorized("Credenciales inválidas.");
 

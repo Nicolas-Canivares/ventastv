@@ -2,9 +2,10 @@
 @using System.Net.Http.Json
 @using System.Globalization
 @using System.Net.Http.Headers
-@inject IHttpClientFactory HttpClientFactory
+@inject PhantomTvSales.Web.Services.ApiClient ApiClient
 @inject NavigationManager Nav
 @inject PhantomTvSales.Web.Services.AuthState AuthState
+@inject PhantomTvSales.Web.Services.ToastService Toasts
 
 <h3>Detalle cliente</h3>
 
@@ -19,7 +20,10 @@
 
 @if (Loading)
 {
-  <p>Cargando…</p>
+  <div class="loading-block">
+    <span class="loading-spinner" aria-hidden="true"></span>
+    <span>Cargando...</span>
+  </div>
 }
 else if (Client is null)
 {
@@ -116,9 +120,12 @@ else
       {
         <div><b>Monto:</b> @Client.Sale.Amount.ToString("N2")</div>
         <div><b>Fecha:</b> @Client.Sale.SoldAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
-        <a class="btn btn-outline-primary btn-sm mt-2" href="@ReceiptUrl" target="_blank" rel="noopener noreferrer">
-          Descargar comprobante
-        </a>
+        @if (!string.IsNullOrWhiteSpace(ReceiptUrl))
+        {
+          <a class="btn btn-outline-primary btn-sm mt-2" href="@ReceiptUrl" target="_blank" rel="noopener noreferrer">
+            Descargar comprobante
+          </a>
+        }
 
       }
     </div>
@@ -127,9 +134,7 @@ else
 
 @code {
 
-  string ReceiptUrl =>
-  new Uri(HttpClientFactory.CreateClient("Api").BaseAddress!,
-  $"api/clients/{Id}/sale/receipt").ToString();
+  string? ReceiptUrl;
 
   [Parameter] public int Id { get; set; }
 
@@ -160,11 +165,11 @@ else
 
     try
     {
-      var http = HttpClientFactory.CreateClient("Api");
+      var http = ApiClient.Create();
       Client = await http.GetFromJsonAsync<ClientDto>($"/api/clients/{Id}");
       if (Client is not null)
       {
-        NewStatus = Client.ContactStatus ?? 1;
+        NewStatus = ParseStatus(Client.ContactStatus) ?? 1;
         Notes = Client.Notes;
         ReceiptUrl = BuildReceiptUrl(http.BaseAddress, Id, AuthState.Token);
       }
@@ -184,10 +189,11 @@ else
     Error = null; Msg = null;
     try
     {
-      var http = HttpClientFactory.CreateClient("Api");
+      var http = ApiClient.Create();
       var res = await http.PutAsJsonAsync($"/api/clients/{Id}/status", new { status = NewStatus, notes = Notes });
       res.EnsureSuccessStatusCode();
       Msg = "Estado guardado.";
+      Toasts.ShowSuccess("Estado guardado.");
       await Load();
     }
     catch (Exception ex)
@@ -201,6 +207,21 @@ else
     if (baseAddress is null || string.IsNullOrWhiteSpace(token)) return null;
     var url = new Uri(baseAddress, $"api/clients/{id}/sale/receipt");
     return $"{url}?access_token={Uri.EscapeDataString(token)}";
+  }
+
+  static int? ParseStatus(string? value)
+  {
+    if (string.IsNullOrWhiteSpace(value)) return null;
+    if (int.TryParse(value, out var numeric)) return numeric;
+
+    return value switch
+    {
+      "AwaitingResponse" => 1,
+      "SaleClosed" => 2,
+      "NotInterested" => 3,
+      "ContactLater" => 4,
+      _ => null
+    };
   }
 
   void OnFileChange(InputFileChangeEventArgs e)
@@ -221,7 +242,7 @@ else
         return;
       }
 
-      var http = HttpClientFactory.CreateClient("Api");
+      var http = ApiClient.Create();
 
       var content = new MultipartFormDataContent();
       content.Add(new StringContent(Amount.ToString(CultureInfo.InvariantCulture)), "amount");
@@ -236,6 +257,7 @@ else
       res.EnsureSuccessStatusCode();
 
       Msg = "Venta guardada correctamente.";
+      Toasts.ShowSuccess("Venta guardada correctamente.");
       ReceiptFile = null;
       SelectedFileName = null;
       await Load();
@@ -255,8 +277,9 @@ else
     public string Phone { get; set; } = "";
     public string Address { get; set; } = "";
     public string City { get; set; } = "";
-    public int? ContactStatus { get; set; }
+    public string? ContactStatus { get; set; }
     public string? Notes { get; set; }
+    public string? LastContactedByUsername { get; set; }
     public SaleDto? Sale { get; set; }
   }
 

@@ -1,10 +1,11 @@
 ﻿@inject PhantomTvSales.Web.Services.AuthState AuthState
 @inject NavigationManager Nav
+@implements IDisposable
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <img src="images/logo.png" alt="Ventas TV" style="height:32px;" class="me-2" />
-        @* <a class="navbar-brand" href="">Connet SRL</a> *@
+        <a class="navbar-brand" href=""><img src="images/logo.png" alt="Ventas TV" style="height:32px;" class="me-2" /></a>
+        @* Connet SRL *@
     </div>
 </div>
 
@@ -12,23 +13,24 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="flex-column">
-        <li class="nav-item px-3">
-            <NavLink class="nav-link" href="clients">
-                <span class="oi oi-people" aria-hidden="true"></span> Clientes
-            </NavLink>
-        </li>
-
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="login">
-                <span class="oi oi-account-login" aria-hidden="true"></span> Ingresar
+            <NavLink class="nav-link" href="clients">
+                <i class="bi bi-people-fill nav-icon" aria-hidden="true"></i>
+                Clientes
             </NavLink>
         </div>
 
+        @* <div class="nav-item px-3">
+            <NavLink class="nav-link" href="login">
+                <span class="oi oi-account-login" aria-hidden="true"></span> Ingresar
+            </NavLink>
+        </div> *@
         @if (AuthState.IsAdmin)
         {
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="admin/users">
-                    <span class="oi oi-people" aria-hidden="true"></span> Usuarios
+                    <i class="bi bi-person-gear nav-icon" aria-hidden="true"></i>
+                    Usuarios
                 </NavLink>
             </div>
         }
@@ -36,29 +38,35 @@
         @if (AuthState.IsAuthenticated)
         {
             <div class="nav-item px-3">
-                <button class="btn btn-link nav-link" @onclick="Logout">Salir (@AuthState.Username)</button>
+                <button class="btn btn-link nav-link" @onclick="Logout">
+                    <i class="bi bi-box-arrow-right nav-icon" aria-hidden="true"></i>
+                    Salir (@AuthState.Username)
+                </button>
             </div>
         }
-
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
     </nav>
 </div>
 
 @code {
-    void Logout()
+    protected override void OnInitialized()
     {
-        AuthState.Clear();
+        AuthState.OnChange += HandleAuthChanged;
+    }
+
+    private void HandleAuthChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    async Task Logout()
+    {
+        await AuthState.ClearAsync();
         Nav.NavigateTo("/login", true);
     }
+
+    public void Dispose()
+    {
+        AuthState.OnChange -= HandleAuthChanged;
+    }
 }
+

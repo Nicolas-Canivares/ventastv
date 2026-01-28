@@ -1,8 +1,62 @@
 ﻿@rendermode InteractiveServer
 
-<Router AppAssembly="typeof(Program).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
-    </Found>
-</Router>
+@inject NavigationManager Nav
+@inject PhantomTvSales.Web.Services.AuthState AuthState
+@implements IDisposable
+
+@if (!_ready)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <Router AppAssembly="typeof(Program).Assembly">
+        <Found Context="routeData">
+            <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+    </Router>
+}
+
+@code {
+    bool _ready;
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += HandleLocationChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await AuthState.InitializeAsync();
+            _ready = true;
+            Guard();
+            StateHasChanged();
+        }
+    }
+
+    void HandleLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        if (_ready)
+        {
+            Guard();
+        }
+    }
+
+    void Guard()
+    {
+        var path = new Uri(Nav.Uri).AbsolutePath;
+        if (!AuthState.IsAuthenticated &&
+            !string.Equals(path, "/login", StringComparison.OrdinalIgnoreCase))
+        {
+            Nav.NavigateTo("/login");
+        }
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= HandleLocationChanged;
+    }
+}

@@ -3,10 +3,17 @@ using PhantomTvSales.Api.Data;
 using PhantomTvSales.Api.Models;
 using PhantomTvSales.Api.Services;
 using Microsoft.AspNetCore.Identity;
+using System.Text.Json.Serialization;
+using System.Data;
+using System.Data.Common;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -30,12 +37,30 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseMiddleware<AuthMiddleware>();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api") &&
+        !context.Request.Path.StartsWithSegments("/api/auth"))
+    {
+        if (context.GetCurrentUser() is null)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await context.Response.WriteAsync("Login requerido.");
+            return;
+        }
+    }
+
+    await next();
+});
 app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
+
+    db.Database.Migrate();
+    EnsureAuthSchema(db);
 
     var seedUsername = builder.Configuration["AdminSeed:Username"];
     var seedPassword = builder.Configuration["AdminSeed:Password"];
@@ -91,12 +116,50 @@ static void EnsureAuthSchema(AppDbContext db)
 
 static void TryAddColumn(AppDbContext db, string table, string column, string type)
 {
+    using var connection = db.Database.GetDbConnection();
+    var shouldClose = connection.State == ConnectionState.Closed;
+    if (shouldClose) connection.Open();
+
     try
     {
-        db.Database.ExecuteSqlRaw($"ALTER TABLE \"{table}\" ADD COLUMN \"{column}\" {type} NULL;");
+        if (!TableExists(connection, table)) return;
+        if (ColumnExists(connection, table, column)) return;
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = $"ALTER TABLE \"{table}\" ADD COLUMN \"{column}\" {type} NULL;";
+        cmd.ExecuteNonQuery();
     }
-    catch
+    finally
     {
-        // columna ya existe o la tabla no está lista
+        if (shouldClose) connection.Close();
     }
+}
+
+static bool TableExists(DbConnection connection, string table)
+{
+    using var cmd = connection.CreateCommand();
+    cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE name = $name AND type = 'table';";
+    var param = cmd.CreateParameter();
+    param.ParameterName = "$name";
+    param.Value = table;
+    cmd.Parameters.Add(param);
+    var count = Convert.ToInt32(cmd.ExecuteScalar());
+    return count > 0;
+}
+
+static bool ColumnExists(DbConnection connection, string table, string column)
+{
+    using var cmd = connection.CreateCommand();
+    cmd.CommandText = $"PRAGMA table_info(\"{table}\");";
+    using var reader = cmd.ExecuteReader();
+    while (reader.Read())
+    {
+        var name = reader.GetString(1);
+        if (string.Equals(name, column, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+    }
+
+    return false;
 }

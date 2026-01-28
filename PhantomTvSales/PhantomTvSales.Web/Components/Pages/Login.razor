@@ -23,7 +23,7 @@
         <input class="form-control" type="password" @bind="Password" />
       </div>
       <div class="col-12">
-        <button class="btn btn-primary" @onclick="Login">Ingresar</button>
+        <button class="btn btn-primary" @onclick="HandleLogin">Ingresar</button>
       </div>
     </div>
   </div>
@@ -34,7 +34,7 @@
   string? Password;
   string? Error;
 
-  async Task Login()
+  async Task HandleLogin()
   {
     Error = null;
     try
@@ -54,8 +54,8 @@
         return;
       }
 
-      AuthState.Set(payload.Token, payload.User.Username, payload.User.Role);
-      Nav.NavigateTo("/clients", true);
+      await AuthState.SetAsync(payload.Token, payload.User.Username, payload.User.Role);
+      Nav.NavigateTo("/clients");
     }
     catch (Exception ex)
     {

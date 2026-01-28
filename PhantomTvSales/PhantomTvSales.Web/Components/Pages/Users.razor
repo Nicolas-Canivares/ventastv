@@ -1,7 +1,8 @@
 @page "/admin/users"
 @using System.Net.Http.Json
-@inject IHttpClientFactory HttpClientFactory
+@inject PhantomTvSales.Web.Services.ApiClient ApiClient
 @inject PhantomTvSales.Web.Services.AuthState AuthState
+@inject PhantomTvSales.Web.Services.ToastService Toasts
 
 <h3>Usuarios</h3>
 
@@ -98,8 +99,19 @@ else
     Error = null;
     try
     {
-      var http = HttpClientFactory.CreateClient("Api");
-      UsersList = await http.GetFromJsonAsync<List<UserRow>>("/api/users") ?? new();
+      var http = ApiClient.Create();
+      var res = await http.GetAsync("/api/users");
+      if (!res.IsSuccessStatusCode)
+      {
+        Error = await res.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(Error))
+        {
+          Error = "No se pudo cargar la lista de usuarios.";
+        }
+        return;
+      }
+
+      UsersList = await res.Content.ReadFromJsonAsync<List<UserRow>>() ?? new();
     }
     catch (Exception ex)
     {
@@ -112,7 +124,7 @@ else
     Error = null;
     try
     {
-      var http = HttpClientFactory.CreateClient("Api");
+      var http = ApiClient.Create();
       var res = await http.PostAsJsonAsync("/api/users", new
       {
         username = NewUsername,
@@ -121,12 +133,17 @@ else
       });
       if (!res.IsSuccessStatusCode)
       {
-        Error = "No se pudo crear el usuario.";
+        Error = await res.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(Error))
+        {
+          Error = "No se pudo crear el usuario.";
+        }
         return;
       }
       NewUsername = "";
       NewPassword = "";
       NewRole = "Seller";
+      Toasts.ShowSuccess("Usuario creado.");
       await Load();
     }
     catch (Exception ex)
@@ -140,7 +157,7 @@ else
     Error = null;
     try
     {
-      var http = HttpClientFactory.CreateClient("Api");
+      var http = ApiClient.Create();
       var res = await http.PutAsJsonAsync($"/api/users/{user.Id}", new
       {
         password = string.IsNullOrWhiteSpace(user.NewPassword) ? null : user.NewPassword,
@@ -148,10 +165,15 @@ else
       });
       if (!res.IsSuccessStatusCode)
       {
-        Error = "No se pudo actualizar el usuario.";
+        Error = await res.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(Error))
+        {
+          Error = "No se pudo actualizar el usuario.";
+        }
         return;
       }
       user.NewPassword = "";
+      Toasts.ShowSuccess("Usuario actualizado.");
       await Load();
     }
     catch (Exception ex)

@@ -1,0 +1,36 @@
+@inject PhantomTvSales.Web.Services.ToastService Toasts
+@implements IDisposable
+
+<div class="toast-stack">
+    @foreach (var toast in Toasts.Messages)
+    {
+        <div class="toast-item @ToastClass(toast.Level)">
+            @toast.Message
+        </div>
+    }
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Toasts.OnChange += HandleChange;
+    }
+
+    private void HandleChange()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    string ToastClass(PhantomTvSales.Web.Services.ToastLevel level) => level switch
+    {
+        PhantomTvSales.Web.Services.ToastLevel.Success => "toast-success",
+        PhantomTvSales.Web.Services.ToastLevel.Warning => "toast-warning",
+        PhantomTvSales.Web.Services.ToastLevel.Error => "toast-error",
+        _ => "toast-info"
+    };
+
+    public void Dispose()
+    {
+        Toasts.OnChange -= HandleChange;
+    }
+}
