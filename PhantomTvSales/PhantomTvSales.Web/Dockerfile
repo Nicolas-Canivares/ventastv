@@ -1,11 +1,10 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+
 WORKDIR /src
 COPY . .
-RUN dotnet restore PhantomTvSales/PhantomTvSales.Web/PhantomTvSales.Web.csproj
-RUN dotnet publish PhantomTvSales/PhantomTvSales.Web/PhantomTvSales.Web.csproj -c Release -o /app/publish
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
-WORKDIR /app
-COPY --from=build /app/publish .
+# Nos movemos a la carpeta del proyecto web
+WORKDIR /src/PhantomTvSales/PhantomTvSales.Web
 
-CMD ["sh","-c","dotnet PhantomTvSales.Web.dll --urls http://0.0.0.0:${PORT:-10000}"]
+RUN dotnet restore PhantomTvSales.Web.csproj
+RUN dotnet publish PhantomTvSales.Web.csproj -c Release -o /app/publish
