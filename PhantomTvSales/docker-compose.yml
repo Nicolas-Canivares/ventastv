@@ -1,0 +1,35 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: PhantomTvSales.Api/Dockerfile
+    ports:
+      - "5072:8080"
+    environment:
+      # SQLite: apuntá a un path dentro del contenedor y lo persistís con un volumen
+      ConnectionStrings__Default: "Data Source=/data/phantomtv.db"
+
+      # Phantom settings (mejor por env vars, no hardcode en appsettings)
+      Phantom__BaseUrl: "http://IP_PHANTOM:5594/PHANTOM/Includes/API_Rest.php"
+      Phantom__ApiUser: "TU_USER"
+      Phantom__ApiPass: "TU_PASS"
+
+      # (Opcional) si guardás PDFs en disco, ideal configurar un path fijo:
+      Receipts__Path: "/data/receipts"
+    volumes:
+      - api_data:/data
+
+  web:
+    build:
+      context: .
+      dockerfile: PhantomTvSales.Web/Dockerfile
+    ports:
+      - "5083:8080"
+    environment:
+      # La Web (Blazor Server) llama a la API por el nombre del servicio: api
+      ApiBaseUrl: "http://api:8080/"
+    depends_on:
+      - api
+
+volumes:
+  api_data:

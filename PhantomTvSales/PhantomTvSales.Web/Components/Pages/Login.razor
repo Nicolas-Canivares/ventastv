@@ -4,27 +4,61 @@
 @inject NavigationManager Nav
 @inject PhantomTvSales.Web.Services.AuthState AuthState
 
-<h3>Iniciar sesión</h3>
+<div class="login-page">
+  <div class="login-shell">
+    <div class="login-split">
+      <section class="login-panel">
+        <div class="panel-top">
+          <div class="panel-logo-wrap">
+            <img class="panel-logo" src="/images/logo.png" alt="Phantom TV Sales">
+          </div>
+          <div class="panel-title">Phantom TV Sales</div>
+          <div class="panel-subtitle">Plataforma comercial corporativa</div>
+        </div>
+        <div class="panel-highlights">
+          <div class="panel-item">
+            <span class="panel-dot"></span>
+            <span>Gestion centralizada de clientes</span>
+          </div>
+          <div class="panel-item">
+            <span class="panel-dot"></span>
+            <span>Seguimiento de ventas y estados</span>
+          </div>
+          <div class="panel-item">
+            <span class="panel-dot"></span>
+            <span>Informacion actualizada en tiempo real</span>
+          </div>
+        </div>
+        <div class="panel-meta">Acceso protegido para personal autorizado.</div>
+      </section>
 
-@if (!string.IsNullOrWhiteSpace(Error))
-{
-  <div class="alert alert-danger">@Error</div>
-}
+      <section class="login-card">
+        <div class="login-header">
+          <div class="login-kicker">Acceso seguro</div>
+          <h3 class="login-title">Inicio de sesion</h3>
+          <p class="login-subtitle">Ingresa con tus credenciales asignadas.</p>
+        </div>
 
-<div class="card">
-  <div class="card-body">
-    <div class="row g-2">
-      <div class="col-12 col-md-6">
-        <label class="form-label">Usuario</label>
-        <input class="form-control" @bind="Username" />
-      </div>
-      <div class="col-12 col-md-6">
-        <label class="form-label">Contraseña</label>
-        <input class="form-control" type="password" @bind="Password" />
-      </div>
-      <div class="col-12">
-        <button class="btn btn-primary" @onclick="HandleLogin">Ingresar</button>
-      </div>
+        @if (!string.IsNullOrWhiteSpace(Error))
+        {
+          <div class="alert alert-danger login-alert">@Error</div>
+        }
+
+        <div class="login-form">
+          <div class="login-field">
+            <label class="form-label">Usuario</label>
+            <input class="form-control form-control-lg" autocomplete="username" placeholder="usuario" @bind="Username" />
+          </div>
+          <div class="login-field">
+            <label class="form-label">Contrasena</label>
+            <input class="form-control form-control-lg" type="password" autocomplete="current-password" placeholder="********" @bind="Password" />
+          </div>
+          <div class="login-actions">
+            <button class="btn btn-primary btn-lg w-100" @onclick="HandleLogin">Ingresar</button>
+            <div class="login-help">Si no tienes acceso, solicita alta al administrador.</div>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 </div>
@@ -43,14 +77,14 @@
       var res = await http.PostAsJsonAsync("/api/auth/login", new { username = Username, password = Password });
       if (!res.IsSuccessStatusCode)
       {
-        Error = "Usuario o contraseña inválidos.";
+        Error = "Usuario o contrasena invalidos.";
         return;
       }
 
       var payload = await res.Content.ReadFromJsonAsync<LoginResponse>();
       if (payload is null)
       {
-        Error = "No se pudo iniciar sesión.";
+        Error = "No se pudo iniciar sesion.";
         return;
       }
 
